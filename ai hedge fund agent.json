@@ -1,0 +1,280 @@
+{
+  "name": "AI Hedge Fund API (Finnhub Edition)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "analyze-stock",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "webhook-trigger",
+      "name": "Webhook (POST)",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 1,
+      "position": [
+        460,
+        300
+      ],
+      "webhookId": "analyze-stock"
+    },
+    {
+      "parameters": {
+        "values": {
+          "string": [
+            {
+              "name": "ticker",
+              "value": "={{ $json.body.ticker || \"IBM\" }}"
+            }
+          ]
+        }
+      },
+      "id": "set-ticker",
+      "name": "Set Stock Ticker",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 1,
+      "position": [
+        680,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://finnhub.io/api/v1/quote",
+        "options": {},
+        "queryParametersUi": {
+          "parameter": [
+            {
+              "name": "symbol",
+              "value": "={{ $node[\"Set Stock Ticker\"].json[\"ticker\"] }}"
+            },
+            {
+              "name": "token",
+              "value": "YOUR_FINNHUB_KEY"
+            }
+          ]
+        }
+      },
+      "id": "get-finnhub-price",
+      "name": "Get Finnhub Price",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        900,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://finnhub.io/api/v1/stock/metric",
+        "options": {},
+        "queryParametersUi": {
+          "parameter": [
+            {
+              "name": "symbol",
+              "value": "={{ $node[\"Set Stock Ticker\"].json[\"ticker\"] }}"
+            },
+            {
+              "name": "metric",
+              "value": "all"
+            },
+            {
+              "name": "token",
+              "value": "YOUR_FINNHUB_KEY"
+            }
+          ]
+        }
+      },
+      "id": "get-finnhub-metrics",
+      "name": "Get Finnhub Metrics",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        1120,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://newsapi.org/v2/everything",
+        "options": {},
+        "queryParametersUi": {
+          "parameter": [
+            {
+              "name": "qInTitle",
+              "value": "={{ $node[\"Set Stock Ticker\"].json[\"ticker\"] }}"
+            },
+            {
+              "name": "domains",
+              "value": "bloomberg.com,cnbc.com,reuters.com,finance.yahoo.com,wsj.com"
+            },
+            {
+              "name": "sortBy",
+              "value": "relevancy"
+            },
+            {
+              "name": "language",
+              "value": "en"
+            },
+            {
+              "name": "apiKey",
+              "value": "YOUR_NEWSAPI_KEY"
+            }
+          ]
+        }
+      },
+      "id": "get-news",
+      "name": "Get News",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        1340,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// Parse Finnhub Data\nconst ticker = $node[\"Set Stock Ticker\"].json[\"ticker\"];\nconst priceData = $node[\"Get Finnhub Price\"].json;\nconst metricData = $node[\"Get Finnhub Metrics\"].json.metric || {};\n\n// Parse News\nconst newsRaw = $node[\"Get News\"].json.articles || [];\nconst newsHeadlines = newsRaw.slice(0, 5).map(a => `- ${a.title} (${a.source.name})`).join('\\n');\n\nreturn {\n  ticker: ticker,\n  current_price: priceData.c || 'N/A',\n  pe_ratio: metricData.peBasicExclExtraTTM || 'N/A',\n  peg_ratio: metricData.pegRatioTTM || 'N/A',\n  book_value: metricData.bookValuePerShareQuarterly || 'N/A',\n  profit_margin: metricData.profitMarginTTM || 'N/A',\n  roe: metricData.roeTTM || 'N/A',\n  debt_to_equity: metricData['totalDebt/totalEquityQuarterly'] || 'N/A',\n  beta: metricData.beta || 'N/A',\n  news_summary: newsHeadlines || 'No recent major news found.'\n};"
+      },
+      "id": "aggregate-data",
+      "name": "Aggregate Data",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 1,
+      "position": [
+        1560,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.groq.com/openai/v1/chat/completions",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "Bearer YOUR_GROQ_API_KEY"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "model",
+              "value": "llama-3.3-70b-versatile"
+            },
+            {
+              "name": "messages",
+              "value": "={{ [\n  {\n    \"role\": \"system\",\n    \"content\": \"You are an expert Senior Equity Research Analyst.\\n\\nYour task is to generate a comprehensive stock report.\\n\\nStructure your response exactly as follows:\\n\\n1. **Financial Snapshot**:\\n   - Create a markdown table displaying: Price, P/E Ratio, PEG Ratio, Beta, Profit Margin, ROE, and Debt/Equity.\\n\\n2. **Fundamental Analysis**:\\n   - Analyze the company's financial health, profitability, and valuation metrics provided.\\n\\n3. **Relative Analysis**:\\n   - Compare these metrics to typical industry averages (estimate based on the sector). Is the company outperforming its peers?\\n\\n4. **Qualitative & Non-Financial Analysis**:\\n   - Analyze the provided news headlines and general industry trends. What are the risks? What is the sentiment?\\n\\n5. **Investment Verdict**:\\n   - **Long-Term Potential**: Is this a good long-term investment? Why?\\n   - **Valuation**: Is the stock currently UNDERVALUED, OVERVALUED, or FAIRLY VALUED?\"\n  },\n  {\n    \"role\": \"user\",\n    \"content\": \"Analyze this stock data:\\nTicker: \" + $json.ticker + \"\\nPrice: \" + $json.current_price + \"\\nBeta: \" + $json.beta + \"\\nP/E Ratio: \" + $json.pe_ratio + \"\\nPEG Ratio: \" + $json.peg_ratio + \"\\nBook Value: \" + $json.book_value + \"\\nROE: \" + $json.roe + \"\\nProfit Margin: \" + $json.profit_margin + \"\\nDebt/Equity: \" + $json.debt_to_equity + \"\\n\\nRecent News Headlines:\\n\" + $json.news_summary\n  }\n] }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "ai-agent",
+      "name": "AI Hedge Fund Agent",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 3,
+      "position": [
+        1780,
+        300
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ $json[\"choices\"][0][\"message\"][\"content\"] }}",
+        "options": {}
+      },
+      "id": "respond-webhook",
+      "name": "Respond to Webhook",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1,
+      "position": [
+        2000,
+        300
+      ]
+    }
+  ],
+  "connections": {
+    "Webhook (POST)": {
+      "main": [
+        [
+          {
+            "node": "Set Stock Ticker",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Set Stock Ticker": {
+      "main": [
+        [
+          {
+            "node": "Get Finnhub Price",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Finnhub Price": {
+      "main": [
+        [
+          {
+            "node": "Get Finnhub Metrics",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get Finnhub Metrics": {
+      "main": [
+        [
+          {
+            "node": "Get News",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get News": {
+      "main": [
+        [
+          {
+            "node": "Aggregate Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Aggregate Data": {
+      "main": [
+        [
+          {
+            "node": "AI Hedge Fund Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Hedge Fund Agent": {
+      "main": [
+        [
+          {
+            "node": "Respond to Webhook",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
