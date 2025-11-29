@@ -1,0 +1,54 @@
+AI Equity Research Agent 📈🤖
+Project Motivation & Purpose
+I developed this project to demonstrate how Generative AI and workflow automation can democratize institutional-grade financial analysis. My goal was to build an autonomous agent capable of synthesizing raw market data into actionable investment theses, effectively simulating the workflow of a Junior Equity Analyst.
+
+This tool solves the problem of "analysis paralysis" by instantly aggregating real-time financials and news sentiment, transforming complex datasets into a clear, readable investment verdict.
+
+Functional Overview
+This application functions as an end-to-end "AI Hedge Fund" dashboard. It orchestrates a pipeline that moves from raw data ingestion to high-level reasoning.
+
+The Workflow:
+
+Frontend Interface: A responsive React and Tailwind CSS dashboard accepts a stock ticker (e.g., AAPL, NVDA).
+
+Orchestration (n8n): The request triggers a complex automation workflow in n8n:
+
+Market Data: Fetches real-time price, P/E ratios, PEG, ROE, and Debt/Equity metrics via the Finnhub API.
+
+Sentiment Data: Aggregates the top 5 relevant news headlines from major financial outlets (Bloomberg, WSJ, Reuters) via NewsAPI.
+
+AI Analysis: The aggregated data is fed into Llama 3.3 70B (via Groq). The LLM is prompt-engineered to act as a Senior Analyst, performing:
+
+Fundamental Analysis: Evaluating financial health based on the fetched metrics.
+
+Qualitative Analysis: Assessing risks based on news sentiment.
+
+Valuation Verdict: Determining if the stock is undervalued, overvalued, or fairly valued.
+
+Visualization: The resulting report is rendered back to the user in a clean, Markdown-formatted financial report.
+
+Tech Stack
+Frontend: React, Tailwind CSS, DOMPurify
+
+Backend/Orchestration: n8n (Workflow Automation)
+
+AI/LLM: Llama 3.3 70B (via Groq API)
+
+Financial APIs: Finnhub (Market Data), NewsAPI (Sentiment)
+
+Why this works for recruiters:
+For Technical Recruiters:
+
+It mentions Groq and Llama 3.3, showing you are up to date with the latest high-performance inference tools.
+
+It shows you understand ETL (Extract, Transform, Load)—extracting from Finnhub, transforming in n8n, and loading into the frontend.
+
+It highlights Error Handling and CORS management (evident in your React code).
+
+For Finance Recruiters:
+
+It explicitly lists the metrics you used (P/E, PEG, ROE, Debt/Equity), proving you understand what drives company valuation.
+
+It mentions "Fundamental" vs. "Qualitative" analysis, showing you know the difference between numbers and news.
+
+It frames the project as an "Equity Research" tool, which is a specific job function they recruit for.
